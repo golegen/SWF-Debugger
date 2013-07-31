@@ -2,6 +2,7 @@ SWF-Debugger
 ============
 
 Flash app for testing SWF Activity Module environment and services
+
 Developed and built using the free and open source FlashDevelop
 ActionScript and Apache Flex IDE.
 See: http://www.flashdevelop.org/
