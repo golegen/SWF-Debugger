@@ -9,8 +9,10 @@ package
 {
 	import flash.display.Sprite;
 	import flash.display.StageAlign;
+	import flash.display.StageDisplayState;
 	import flash.display.StageScaleMode;
 	import flash.events.Event;
+	import flash.events.FullScreenEvent;
 	import flash.events.MouseEvent;
 	import flash.events.IOErrorEvent;
 	import flash.events.IEventDispatcher;
@@ -18,6 +20,7 @@ package
 	import flash.filters.DropShadowFilter;
 	import flash.net.URLLoader;
 	import flash.net.URLRequest;
+	import flash.net.navigateToURL;
 	import flash.system.Capabilities;
 	import flash.system.System;
 	import flash.text.TextField;
@@ -53,6 +56,8 @@ package
 		private var _snapshot:Snapshot;
 		private var _increment:Button;
 		private var _decrement:Button;
+		private var _fullscreen:Button;
+		private var _exit:Button;
 		private var _stageInfoText:TextField;
 		private var _displayText:TextField;
 		private var _scrollBar:UIScrollBar;
@@ -154,6 +159,21 @@ package
 			_snapshotButton.addEventListener(MouseEvent.MOUSE_UP, initSnapshot);
 			addChild(_snapshotButton);
 			_buttons.push(_snapshotButton);
+			// Fullscreen
+			if (FlashVars.fullscreen != "undefined" && FlashVars.fullscreen != "false") {
+				stage.addEventListener(FullScreenEvent.FULL_SCREEN, fullscreenEvent);
+				_fullscreen = new Button("Fullscreen");
+				_fullscreen.addEventListener(MouseEvent.MOUSE_UP, fullscreen);
+				addChild(_fullscreen);
+				_buttons.push(_fullscreen);
+			}
+			// Exit
+			if(FlashVars.exiturl != "undefined") {
+				_exit = new Button("Go to exit URL");
+				_exit.addEventListener(MouseEvent.MOUSE_UP, exit);
+				addChild(_exit);
+				_buttons.push(_exit);
+			}
 		}
 		
 		/**
@@ -603,6 +623,10 @@ package
 			resize();
 		}
 		
+		/**
+		 * Send grade
+		 * @param	event:flash.events.MouseEvent
+		 */
 		private function sendUp(event:MouseEvent = null):void {
 			_sendGrade.sendGrade();
 		}
@@ -652,8 +676,52 @@ package
 			}
 		}
 		
+		// stage.allowsFullScreenInteractive was introduced in Flash Player 11.3
+		// Won't work for Flash Player 11.2 (for Linux users) so use workaround
+		private function fullscreen(event:MouseEvent = null):void {
+			switch(stage.displayState) {
+				case StageDisplayState.NORMAL:
+					if (FlashVars.fullscreen == "allowFullScreenInteractive") {
+						stage.displayState = StageDisplayState.FULL_SCREEN_INTERACTIVE;
+					} else {
+						stage.displayState = StageDisplayState.FULL_SCREEN;
+					}
+					break;
+					
+				case StageDisplayState.FULL_SCREEN:
+					stage.displayState = StageDisplayState.NORMAL;
+					break;
+					
+				case StageDisplayState.FULL_SCREEN_INTERACTIVE:
+					stage.displayState = StageDisplayState.NORMAL;
+					break;
+					
+				default:
+					// no default
+			}
+			fullscreenEvent();
+		}
+		
+		private function fullscreenEvent(event:FullScreenEvent = null):void {
+			if (stage.displayState == StageDisplayState.NORMAL) {
+				_fullscreen.label = "Fullscreen";
+			} else {
+				_fullscreen.label = "Exit fullscreen";
+			}
+			initDisplayText();
+			positionDisplayText();
+			_displayText.text = "allowsFullScreen = " + FlashVars.fullscreen + "\nstage.displayState = " + stage.displayState;
+			resize();
+		}
+		
+		private function exit(event:MouseEvent):void {
+			var request:URLRequest = new URLRequest(FlashVars.exiturl);
+			navigateToURL(request, "_self");
+		}
+		
 		/**
 		 * Initialise text area for displaying text; SMIL, XML, FlashVars, etc.
+		 * and add UIScrollBar component from lib/components.swc::fl.controls.UIScrollBar
 		 */
 		private function initDisplayText():void {
 			if (!_displayText) {
