@@ -7,7 +7,14 @@ package
 	 */
 	import flash.display.Sprite;
 	import flash.events.Event;
+	import flash.events.IEventDispatcher;
+	import flash.events.IOErrorEvent;
 	import flash.events.MouseEvent;
+	import flash.events.SecurityErrorEvent;
+	import flash.net.URLLoader;
+	import flash.net.URLRequest;
+	import flash.net.URLRequestMethod;
+	import flash.net.URLVariables;
 	import flash.text.TextField;
 	import flash.text.TextFieldAutoSize;
 	import flash.text.TextFieldType;
@@ -23,6 +30,7 @@ package
 		private var _seconds:TextField;
 		private var _feedback:TextField;
 		private var _results:TextField;
+		private var _loader:URLLoader;
 		
 		/**
 		 * Constructor
@@ -40,7 +48,7 @@ package
 			_grade = initInput(String(Math.floor(Math.random() * 100)));
 			_grade.restrict = "0-9 .";
 			addChild(_grade);
-			_seconds = initInput(String(Math.round(Math.random() * 3600)));
+			_seconds = initInput(String(Math.round(Math.random() * 360)));
 			_seconds.restrict = "0-9";
 			_seconds.y = _grade.y + _grade.height + 4;
 			addChild(_seconds);
@@ -141,6 +149,62 @@ package
 			for(var s:String in _amf.obj.info) { // trace out returned data
 				_results.appendText("\n" + s + "=" + _amf.obj.info[s]);
 			}
+			sendURLVars();
+		}
+		
+		/**
+		 * Workaround for servers with PHP 5.4+ installed (Where AmfPHP 1.9 doesn't work)
+		 */
+		private function sendURLVars():void {
+			_results.appendText("\n AmfPHP gateway failed. Now trying URLLoader... ");
+			_loader = new URLLoader();
+			configureListeners(_loader);
+			var url:String = FlashVars.gradeupdate;
+			//var url:String = "scripts/grade.php";
+			var request:URLRequest = new URLRequest(url);
+			var vars:URLVariables = new URLVariables();
+			vars.instance = FlashVars.instance;
+			vars.swfid = FlashVars.swfid;
+			vars.rawgrade = Number(_grade.text);
+			vars.feedbackformat = Number(_seconds.text);
+			vars.feedback = _feedback.text;
+			request.data = vars;
+			request.method = URLRequestMethod.POST;
+			try {
+				_loader.load(request);
+			} catch (e:Error) {
+				_results.appendText("\n" + e.name + ", " + e.message);
+			}
+		}
+		
+        private function configureListeners(dispatcher:IEventDispatcher):void {
+            dispatcher.addEventListener(Event.COMPLETE, complete);
+            dispatcher.addEventListener(SecurityErrorEvent.SECURITY_ERROR, securityError);
+            dispatcher.addEventListener(IOErrorEvent.IO_ERROR, ioError);
+        }
+		
+        private function removeListeners(dispatcher:IEventDispatcher):void {
+            dispatcher.removeEventListener(Event.COMPLETE, complete);
+            dispatcher.removeEventListener(SecurityErrorEvent.SECURITY_ERROR, securityError);
+            dispatcher.removeEventListener(IOErrorEvent.IO_ERROR, ioError);
+        }
+		
+		private function complete(event:Event):void {
+			var loader:URLLoader = URLLoader(event.target);
+			removeListeners(loader);
+            _results.appendText("\n loader.data: " + loader.data);
+		}
+		
+		private function ioError(event:IOErrorEvent):void {
+			var loader:URLLoader = URLLoader(event.target);
+			removeListeners(loader);
+			_results.appendText("\n IOError: " + event.text);
+		}
+		
+		private function securityError(event:SecurityErrorEvent):void {
+			var loader:URLLoader = URLLoader(event.target);
+			removeListeners(loader);
+			_results.appendText("\n SecurityError: " + event.text);
 		}
 	}
 }
